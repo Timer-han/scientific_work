@@ -1,9 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 
+
+def sol_ex(x):
+    return np.sin(x) + x + 1
 
 def func(x):
-    return (x - 5)**2
+    return np.sin(x)
 
 def get_tridiagonal_matrix(n: int):
     matrix = np.zeros((n, n))
@@ -19,7 +23,7 @@ def solve_by_finding_inversed_matrix(matrix, vector):
     inversed = np.linalg.inv(matrix)
     return np.dot(inversed, vector)
 
-def solve_by_tridiagonal_matrix_algorithm(matrix, vector):
+def solve_by_tridiagonal_matrix(matrix, vector):
     n = len(matrix)
     a = np.zeros(n)
     b = np.zeros(n - 1)
@@ -31,6 +35,11 @@ def solve_by_tridiagonal_matrix_algorithm(matrix, vector):
             b[i - 1] = matrix[i - 1, i]
             c[i - 1] = matrix[i, i - 1]
     
+    return thomas(a, b, c, vector)
+
+def thomas(a, b, c, vector):
+    n = len(a)
+
     b[0] /= a[0]
     for i in range(1, n - 1):
         b[i] /= (a[i] - c[i - 1] * b[i - 1])
@@ -46,15 +55,14 @@ def solve_by_tridiagonal_matrix_algorithm(matrix, vector):
     
     return x
 
+
 def residual(matrix, vector, solution):
     return np.dot(matrix, solution) - vector
 
 def get_norm(vector):
     return np.linalg.norm(vector)
 
-
-
-def get_initial_data():
+def build_rhs_vector(n, cell_size, a, b):
     vector = np.zeros(n - 1)
     for i in range(n - 1):
         x = cell_size * i
@@ -63,38 +71,82 @@ def get_initial_data():
     vector[-1] += b
     return vector
 
+def compute_error_c_norm(solution):
+    y_exact = sol_ex(solution)
+    return np.max(np.abs(y_exact - solution))
+
+# Параметры задачи
 lengh = 10
-n = 10000
-a = 0
-b = 0
-cell_size = lengh / n
-matrix = get_tridiagonal_matrix(n - 1)
+a = sol_ex(0)
+b = sol_ex(lengh)
+frames_data = []
+errors_inv = []
+errors_thomas = []
 
-vector = get_initial_data()
+ns = [2**x for x in range(2, 14)]
+for n in ns:
+    # решение задачи
+    cell_size = lengh / n
+    x = np.linspace(0, lengh, n - 1)
 
-solution_by_inversed_matrix = solve_by_finding_inversed_matrix(matrix, vector)
-solution_by_tridiagonal_matrix_algorithm = solve_by_tridiagonal_matrix_algorithm(matrix, vector)
-residual_by_inversed_matrix = residual(matrix, vector, solution_by_inversed_matrix)
-residual_by_tridiagonal_matrix_algorithm = residual(matrix, vector, solution_by_tridiagonal_matrix_algorithm)
-norm_by_inversed_matrix = get_norm(residual_by_inversed_matrix)
-norm_by_tridiagonal_matrix_algorithm = get_norm(residual_by_tridiagonal_matrix_algorithm)
-print("Solution by inversed matrix:")
-print(solution_by_inversed_matrix[:n:n//10])
-print("Norm of residual:")
-print(norm_by_inversed_matrix)
-print("-" * 50)
-print("Solution by tridiagonal matrix algorithm:")
-print(solution_by_tridiagonal_matrix_algorithm[:n:n//10])
-print("Norm of residual:")
-print(norm_by_tridiagonal_matrix_algorithm)
-print("-" * 50)
+    matrix = get_tridiagonal_matrix(n - 1)
+    diagonal = np.full(n - 1, 2.)
+    upper_diagonal = np.full(n - 2, -1.)
+    lower_diagonal = np.full(n - 2, -1.)
 
+    vector = build_rhs_vector(n, cell_size, a, b)
+    sol_inv = solve_by_finding_inversed_matrix(matrix, vector)
+
+    vector = build_rhs_vector(n, cell_size, a, b)
+    sol_thomas = thomas(diagonal, upper_diagonal, lower_diagonal, vector)
+
+    x_exact = np.linspace(0, lengh, 500)
+    y_exact = sol_ex(x_exact)
+
+    frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
+
+    # Вычисление ошибки в норме C
+    errors_inv.append(compute_error_c_norm(sol_inv))
+    errors_thomas.append(compute_error_c_norm(sol_thomas))
+
+
+# Создание графика решений
+fig, ax = plt.subplots(figsize=(10, 6))
+line_inv, = ax.plot([], [], label="Inversed Matrix", color="blue", linestyle='--')
+line_thomas, = ax.plot([], [], label="Thomas Algorithm", color="green")
+line_exact, = ax.plot([], [], label="Exact Solution", color="black", linestyle='-.')
+
+ax.set_xlabel("x")
+ax.set_ylabel("Solution")
+ax.set_title("Solution of the system")
+ax.legend(loc='upper left')
+ax.grid(True)
+
+def init():
+    ax.set_xlim(-1, 11)
+    ax.set_ylim(0, 12)
+    return line_inv, line_thomas, line_exact
+
+def update(frame):
+    x, sol_inv, sol_thomas, x_exact, y_exact, n_val = frames_data[frame]
+    line_inv.set_data(x, sol_inv)
+    line_thomas.set_data(x, sol_thomas)
+    line_exact.set_data(x_exact, y_exact)
+    ax.set_title(f"Solution of the system (n = {n_val})")
+    return line_inv, line_thomas, line_exact
+
+ani = FuncAnimation(fig, update, frames=len(frames_data),
+                    init_func=init, blit=True, interval=100)
+
+plt.show()
+
+# Лог-график ошибки
 plt.figure(figsize=(10, 6))
-plt.plot(np.linspace(0, lengh, n - 1), solution_by_inversed_matrix, label="Inversed Matrix", color="blue")
-plt.plot(np.linspace(0, lengh, n - 1), solution_by_tridiagonal_matrix_algorithm, label="Tridiagonal Matrix Algorithm", color="red")
-plt.xlabel("x")  # Подпись оси X
-plt.ylabel("Solution")  # Подпись оси Y
-plt.title("Solution of the system")  # Заголовок графика
-plt.legend()  # Показываем легенду
-plt.grid(True)  # Включаем сетку
-plt.show()  # Показываем график
+plt.loglog(ns, errors_inv, label="Inversed Matrix", color="blue", linestyle='--')
+plt.loglog(ns, errors_thomas, label="Thomas Algorithm", color="green")
+plt.xlabel("Number of cells (n)")
+plt.ylabel("Error C-norm")
+plt.title("Error C-norm")
+plt.legend()
+plt.grid(True, which="both", linestyle='--')
+plt.show()
