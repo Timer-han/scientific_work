@@ -71,8 +71,8 @@ def build_rhs_vector(n, cell_size, a, b):
     vector[-1] += b
     return vector
 
-def compute_error_c_norm(solution):
-    y_exact = sol_ex(solution)
+def compute_error_c_norm(x_exact, solution):
+    y_exact = sol_ex(x_exact)
     return np.max(np.abs(y_exact - solution))
 
 # Параметры задачи
@@ -83,7 +83,7 @@ frames_data = []
 errors_inv = []
 errors_thomas = []
 
-ns = [2**x for x in range(2, 14)]
+ns = [int(1.2**x) for x in range(7, 30)]
 for n in ns:
     # решение задачи
     cell_size = lengh / n
@@ -106,8 +106,8 @@ for n in ns:
     frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
 
     # Вычисление ошибки в норме C
-    errors_inv.append(compute_error_c_norm(sol_inv))
-    errors_thomas.append(compute_error_c_norm(sol_thomas))
+    errors_inv.append(compute_error_c_norm(x, sol_inv))
+    errors_thomas.append(compute_error_c_norm(x, sol_thomas))
 
 
 # Создание графика решений
