@@ -32,23 +32,22 @@ def get_tridiagonal_matrix(n: int):
 
 def get_diagonal(n, cell_size):
     diagonal = np.full(n - 1, 0.)
+    
     for i in range(1, n - 2):
         a = get_k((i - 0.5) * cell_size)
         b = get_k((i + 0.5) * cell_size)
         c = get_k((i + 1.5) * cell_size)
-        diagonal[i] = (a * (a + b) + c * (b + c)) / ((a + b) * (b + c))
+        diagonal[i] = (c * (a + b) + a * (b + c)) / ((a + b) * (b + c))
 
     a = get_k(0)
     b = get_k(0.5 * cell_size)
     c = get_k(1.5 * cell_size)
-    
-    diagonal[0] = (2 * a * (a + b) + c * (b + c)) / ((a + b) * (b + c))
+    diagonal[0] = (c * (a + b) + 2 * a * (b + c)) / ((a + b) * (b + c))
 
     a = get_k((n - 2.5) * cell_size)
     b = get_k((n - 1.5) * cell_size)
-    c = get_k((n - 1) * cell_size)
-
-    diagonal[-1] = (a * (a + b) + 2 * c * (b + c)) / ((a + b) * (b + c))
+    c = get_k((n - 1.0) * cell_size)
+    diagonal[-1] = (2 * c * (a + b) + a * (b + c)) / ((a + b) * (b + c))
 
     return diagonal
 
@@ -57,7 +56,7 @@ def get_upper_diagonal(n):
     for i in range(0, n - 2):
         a = get_k((i + 0.5) * cell_size)
         b = get_k((i + 1.5) * cell_size)
-        upper_diagonal[i] = -1 * b / (a + b)
+        upper_diagonal[i] = - b / (a + b)
     return upper_diagonal
 
 def get_lower_diagonal(n):
@@ -65,7 +64,7 @@ def get_lower_diagonal(n):
     for i in range(0, n - 2):
         a = get_k((i + 0.5) * cell_size)
         b = get_k((i + 1.5) * cell_size)
-        lower_diagonal[i] = -1 * a / (a + b)
+        lower_diagonal[i] = - a / (a + b)
     return lower_diagonal
 
 def solve_by_finding_inversed_matrix(matrix, vector):
@@ -134,7 +133,7 @@ frames_data = []
 errors_inv = []
 errors_thomas = []
 
-ns = [int(1.2**x) for x in range(7, 30)]
+ns = [int(1.5**x) for x in range(7, 30)]
 for n in ns:
     # решение задачи
     cell_size = lengh / n
