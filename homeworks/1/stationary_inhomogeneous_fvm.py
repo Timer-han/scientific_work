@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
-
+from matplotlib.animation import PillowWriter
 
 # Пример 1. Всё хорошо
 def get_h(x, t):
@@ -229,8 +229,9 @@ def update(frame):
 ani = FuncAnimation(fig, update, frames=len(frames_data),
                     init_func=init, blit=True, interval=100)
 
+pillow_writer = PillowWriter(fps=10)
+ani.save('animation.gif', writer=pillow_writer)
 plt.show()
-
 # # Лог-график ошибки
 # plt.figure(figsize=(10, 6))
 # # plt.loglog(ns, errors_thomas, label="Thomas Algorithm", color="red")
