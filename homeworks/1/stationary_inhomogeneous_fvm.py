@@ -3,20 +3,48 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 
-# def sol_ex(x):
-#     return np.sin(x) + x + 1
-# def func(x):
-#     return np.sin(x)
-# def get_k(x):
-#     return 1
-
-
-def sol_ex(x):
-    return np.cos(x) + x
-def func(x):
-    return 2 * np.sin(x) * np.cos(x) - np.cos(x)
+# Пример 1. Всё хорошо
+def get_h(x, t):
+    return np.cos(x) + x - np.cos(t)
+def get_f(x, t):
+    return 2 * np.sin(x) * np.cos(x) - np.cos(x) + np.sin(x) * np.sin(t)
 def get_k(x):
     return np.sin(x)
+def get_s(x):
+    return np.sin(x)
+def get_h_initial(x):
+    return get_h(x, 0)
+def get_h_boundaries(t, length):
+    return get_h(0, t), get_h(length, t)
+
+# # Пример 2. Решение очень красиво расходится
+# def get_h(x, t):
+#     return np.sin(x) + x - np.cos(t)
+# def get_f(x, t):
+#     return np.sin(x) + (x - 0.9) * np.sin(t)
+# def get_k(x):
+#     return 1
+# def get_s(x):
+#     return x - 0.9
+# def get_h_initial(x):
+#     return get_h(x, 0)
+# def get_h_boundaries(t, length):
+#     return get_h(0, t), get_h(length, t)
+
+# # Пример 3. k = 1, s = 1
+# def get_h(x, t):
+#     return np.sin(x) + x - np.cos(t)
+# def get_f(x, t):
+#     return np.sin(x) + np.sin(t)
+# def get_k(x):
+#     return 1
+# def get_s(x):
+#     return 1
+# def get_h_initial(x):
+#     return get_h(x, 0)
+# def get_h_boundaries(t, length):
+#     return get_h(0, t), get_h(length, t)
+
 
 def get_tridiagonal_matrix(n: int):
     matrix = np.zeros((n, n))
@@ -30,24 +58,27 @@ def get_tridiagonal_matrix(n: int):
     matrix[n - 1, n - 1] = 3
     return matrix
 
-def get_diagonal(n, cell_size):
+def get_diagonal(n, cell_size, time_interval):
     diagonal = np.full(n - 1, 0.)
     
     for i in range(1, n - 2):
         a = get_k((i - 0.5) * cell_size)
         b = get_k((i + 0.5) * cell_size)
         c = get_k((i + 1.5) * cell_size)
-        diagonal[i] = (c * (a + b) + a * (b + c)) / ((a + b) * (b + c))
+        s = get_s((i + 0.5) * cell_size)
+        diagonal[i] = (c * (a + b) + a * (b + c)) / ((a + b) * (b + c)) + s * cell_size ** 2 / (2 * b * time_interval)
 
     a = get_k(0)
     b = get_k(0.5 * cell_size)
     c = get_k(1.5 * cell_size)
-    diagonal[0] = (c * (a + b) + 2 * a * (b + c)) / ((a + b) * (b + c))
+    s = get_s(0.5 * cell_size)
+    diagonal[0] = (c * (a + b) + 2 * a * (b + c)) / ((a + b) * (b + c)) + s * cell_size ** 2 / (2 * b * time_interval)
 
     a = get_k((n - 2.5) * cell_size)
     b = get_k((n - 1.5) * cell_size)
     c = get_k((n - 1.0) * cell_size)
-    diagonal[-1] = (2 * c * (a + b) + a * (b + c)) / ((a + b) * (b + c))
+    s = get_s((n - 1.5) * cell_size)
+    diagonal[-1] = (2 * c * (a + b) + a * (b + c)) / ((a + b) * (b + c)) + s * cell_size ** 2 / (2 * b * time_interval)
 
     return diagonal
 
@@ -110,37 +141,42 @@ def residual(matrix, vector, solution):
 def get_norm(vector):
     return np.linalg.norm(vector)
 
-def build_rhs_vector(n, cell_size, a, b):
+def build_rhs_vector(n, cell_size, time_interval, time_step, h_prev):
     vector = np.zeros(n - 1)
     for i in range(0, n - 1):
         x = (i + 0.5) * cell_size
-        vector[i] = func(x) * cell_size ** 2 / (2 * get_k(x))
+        t = time_step * time_interval
+        s = get_s(x)
+        k = get_k(x)
+        vector[i] = get_f(x, t) * cell_size ** 2 / (2 * k) + s * cell_size ** 2 / (2 * k * time_interval) * h_prev[i]
 
     lengh = n * cell_size
-    vector[0] += 2 * a * get_k(0) / (get_k(0) + get_k(0.5 * cell_size))
-    vector[-1] += 2 * b * get_k(lengh) / (get_k(lengh) + get_k((n - 0.5) * cell_size))
+    h_left, h_right = get_h_boundaries(time_step * time_interval, lengh)
+    vector[0] += 2 * h_left * get_k(0) / (get_k(0) + get_k(0.5 * cell_size))
+    vector[-1] += 2 * h_right * get_k(lengh) / (get_k(lengh) + get_k((n - 0.5) * cell_size))
     return vector
 
-def compute_error_c_norm(x_exact, solution):
-    y_exact = sol_ex(x_exact)
+def compute_error_c_norm(x_exact, solution, time_step, time_interval):
+    y_exact = get_h(x_exact, time_step * time_interval)
     return np.max(np.abs(y_exact - solution))
 
 # Параметры задачи
 lengh = 10
-a = sol_ex(0)
-b = sol_ex(lengh)
+n = 1000
+cell_size = lengh / n
+x = np.linspace(cell_size / 2, lengh - cell_size / 2, n - 1)
+
+time_interval = 0.1
+
 frames_data = []
 errors_inv = []
 errors_thomas = []
+h_prev = get_h_initial(x)
 
-ns = [int(1.5**x) for x in range(7, 30)]
-for n in ns:
+for time_step in range(1, 1000):
     # решение задачи
-    cell_size = lengh / n
-    x = np.linspace(cell_size / 2, lengh - cell_size / 2, n - 1)
 
-    # matrix = get_tridiagonal_matrix(n - 1)
-    diagonal = get_diagonal(n, cell_size)
+    diagonal = get_diagonal(n, cell_size, time_interval)
     upper_diagonal = get_upper_diagonal(n)
     lower_diagonal = get_lower_diagonal(n)
 
@@ -148,18 +184,20 @@ for n in ns:
     # vector = build_rhs_vector(n, cell_size, a, b)
     # sol_inv = solve_by_finding_inversed_matrix(matrix, vector)
 
-    vector = build_rhs_vector(n, cell_size, a, b)
+    vector = build_rhs_vector(n, cell_size, time_interval, time_step, h_prev)
     sol_thomas = thomas(diagonal, upper_diagonal, lower_diagonal, vector)
 
-    x_exact = np.linspace(cell_size / 2, lengh - cell_size / 2, 500)
-    y_exact = sol_ex(x_exact)
+    x_exact = np.linspace(cell_size / 2, lengh - cell_size / 2, 1000)
+    y_exact = get_h(x_exact, time_step * time_interval)
 
     # frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
     frames_data.append((x, sol_thomas, x_exact, y_exact, n))
 
     # Вычисление ошибки в норме C
     # errors_inv.append(compute_error_c_norm(x, sol_inv))
-    errors_thomas.append(compute_error_c_norm(x, sol_thomas))
+    errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, time_interval))
+
+    h_prev = sol_thomas
 
 
 # Создание графика решений
@@ -193,13 +231,13 @@ ani = FuncAnimation(fig, update, frames=len(frames_data),
 
 plt.show()
 
-# Лог-график ошибки
-plt.figure(figsize=(10, 6))
-plt.loglog(ns, errors_thomas, label="Thomas Algorithm", color="red")
-# plt.loglog(ns, errors_inv, label="Inversed Matrix", color="blue", linestyle='--')
-plt.xlabel("Number of cells (n)")
-plt.ylabel("Error C-norm")
-plt.title("Error C-norm")
-plt.legend()
-plt.grid(True, which="both", linestyle='--')
-plt.show()
+# # Лог-график ошибки
+# plt.figure(figsize=(10, 6))
+# # plt.loglog(ns, errors_thomas, label="Thomas Algorithm", color="red")
+# # plt.loglog(ns, errors_inv, label="Inversed Matrix", color="blue", linestyle='--')
+# plt.xlabel("Number of cells (n)")
+# plt.ylabel("Error C-norm")
+# plt.title("Error C-norm")
+# plt.legend()
+# plt.grid(True, which="both", linestyle='--')
+# plt.show()
