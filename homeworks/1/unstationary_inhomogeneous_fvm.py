@@ -212,6 +212,16 @@ ax.set_title("Solution of the system")
 ax.legend(loc='upper left')
 ax.grid(True)
 
+
+
+
+
+
+
+
+
+
+
 def init():
     ax.set_xlim(-1, 11)
     ax.set_ylim(0, 12)
@@ -226,19 +236,12 @@ def update(frame):
     ax.set_title(f"Solution of the system (n = {n_val})")
     return line_inv, line_thomas, line_exact
 
+
+
+
 ani = FuncAnimation(fig, update, frames=len(frames_data),
                     init_func=init, blit=True, interval=100)
 
 pillow_writer = PillowWriter(fps=10)
 ani.save('animation.gif', writer=pillow_writer)
 plt.show()
-# # Лог-график ошибки
-# plt.figure(figsize=(10, 6))
-# # plt.loglog(ns, errors_thomas, label="Thomas Algorithm", color="red")
-# # plt.loglog(ns, errors_inv, label="Inversed Matrix", color="blue", linestyle='--')
-# plt.xlabel("Number of cells (n)")
-# plt.ylabel("Error C-norm")
-# plt.title("Error C-norm")
-# plt.legend()
-# plt.grid(True, which="both", linestyle='--')
-# plt.show()
