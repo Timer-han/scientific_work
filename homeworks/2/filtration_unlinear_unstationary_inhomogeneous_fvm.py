@@ -170,7 +170,8 @@ def build_rhs_vector(n, cell_size, time_interval, time_step, h_prev, h_init):
     return vector
 
 def compute_error_c_norm(x_exact, solution, time_step, time_interval):
-    y_exact = get_h(x_exact, time_step * time_interval)
+    # y_exact = get_h(x_exact, time_step * time_interval)
+    y_exact = x_exact
     return np.max(np.abs(y_exact - solution))
 
 # Параметры задачи
@@ -189,7 +190,7 @@ errors_thomas = []
 h_init = get_h_initial(x)
 h_prev = h_init.copy()
 
-for time_step in range(1, 1000):
+for time_step in range(1, 300):
     # решение задачи
 
     converged = False
@@ -205,7 +206,7 @@ for time_step in range(1, 1000):
         vector = build_rhs_vector(n, cell_size, time_interval, time_step, h_prev, h_init)
         sol_thomas = thomas(diagonal, upper_diagonal, lower_diagonal, vector)
 
-        r_k = compute_error_c_norm(h_prev, sol_thomas, time_step, time_interval)
+        r_k = compute_error_c_norm(h_init, sol_thomas, time_step, time_interval)
         print(f"Шаг {time_step}, итерация {i}, r_k = {r_k}")
         if r_k < eps_abs or r_k < eps_rel * np.linalg.norm(sol_thomas):
             converged = True
@@ -214,27 +215,32 @@ for time_step in range(1, 1000):
 
         h_prev = sol_thomas
 
+        # x_exact = np.linspace(cell_size / 2, lengh - cell_size / 2, 1000)
+        # y_exact = get_h(x_exact, time_step * time_interval)
+
+        # # frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
+        # frames_data.append((x, sol_thomas, h_init, x_exact, y_exact, n))
+
     if not converged:
         print(f"Не сошлось на шаге {time_step}!")
-        sys.exit(1)
         break
 
     x_exact = np.linspace(cell_size / 2, lengh - cell_size / 2, 1000)
     y_exact = get_h(x_exact, time_step * time_interval)
 
     # frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
-    frames_data.append((x, sol_thomas, x_exact, y_exact, n))
+    frames_data.append((x, sol_thomas, h_init, x_exact, y_exact, n))
 
     # Вычисление ошибки в норме C
     # errors_inv.append(compute_error_c_norm(x, sol_inv))
-    errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, time_interval))
+    # errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, time_interval))
 
     h_init = sol_thomas
 
 
 # Создание графика решений
 fig, ax = plt.subplots(figsize=(10, 6))
-line_inv, = ax.plot([], [], label="Inversed Matrix", color="blue", linestyle='--')
+line_inv, = ax.plot([], [], label="Previous step solution", color="blue", linestyle='--')
 line_thomas, = ax.plot([], [], label="Thomas Algorithm", color="green")
 line_exact, = ax.plot([], [], label="Exact Solution", color="black", linestyle='-.')
 
@@ -261,8 +267,9 @@ def init():
 
 def update(frame):
     # x, sol_inv, sol_thomas, x_exact, y_exact, n_val = frames_data[frame]
-    x, sol_thomas, x_exact, y_exact, n_val = frames_data[frame]
+    x, sol_thomas, h_prev, x_exact, y_exact, n_val = frames_data[frame]
     # line_inv.set_data(x, sol_inv)
+    line_inv.set_data(x, h_prev)
     line_thomas.set_data(x, sol_thomas)
     line_exact.set_data(x_exact, y_exact)
     ax.set_title(f"Solution of the system (n = {n_val})")
@@ -274,6 +281,6 @@ def update(frame):
 ani = FuncAnimation(fig, update, frames=len(frames_data),
                     init_func=init, blit=True, interval=100)
 
-pillow_writer = PillowWriter(fps=10)
-ani.save('animation.gif', writer=pillow_writer)
+# pillow_writer = PillowWriter(fps=10)
+# ani.save('animation.gif', writer=pillow_writer)
 plt.show()
