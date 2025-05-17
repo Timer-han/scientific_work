@@ -10,7 +10,7 @@ IC = -8
 def get_h(x, t):
     return x * 0 + IC
 def get_k(x):
-    return 7.96 # m/day
+    return 8 # m/day
 
 # Определить аппроксимацию К в узле
 def get_k_node(i, dx, n):
@@ -24,7 +24,7 @@ def get_k_node(i, dx, n):
     
 
 def get_sstor(x):
-    return 1e-6 # 1/m
+    return 1e0 # 1/m
 def get_h_initial(x):
     return get_h(x, 0)
 def get_h_boundaries(t, length):
@@ -42,7 +42,7 @@ def get_Kr(h):
     ө = get_ө(h)
     S_l = (ө - ө_r) / (ө_s - ө_r)
     #print(S_l)
-    return S_l ** 2# 0.5 * (1 - (1 - S_l ** (1 / m)) ** m) ** 2
+    return 0.5 * (1 - (1 - S_l ** (1 / m)) ** m) ** 2
 def get_ө(h):
     ө_s = get_phi()
     ө_r = 0.102
@@ -78,7 +78,7 @@ def get_diagonal(n, dx, dt, h_init):
     # Левая граничная ячейка с номером 0
     k_l = get_k(0.5 * dx) # Берем из ячейки
     k_r = get_k_node(1, dx, n)
-    Kr_l = get_Kr(max(h_init[0],-10)) # захардкодил ГУ слева
+    Kr_l = get_Kr(max(h_init[0], IC)) # захардкодил ГУ слева
     Kr_r = get_Kr(max(h_init[0], h_init[1]))
     diagonal[0] = 0.5 * k_l * Kr_l + k_r * Kr_r 
 
@@ -116,7 +116,7 @@ def build_rhs_vector(n, dx, dt, time_step, h_prev, h_init):
     
     # Левая граничная ячейка с номером 0
     k_l = get_k(0.5 * dx) # Берем из ячейки
-    Kr_l = get_Kr(max(h_init[0],-10)) # захардкодил ГУ слева
+    Kr_l = get_Kr(max(h_init[0], IC)) # захардкодил ГУ слева
     vector[0] += 0.5 * k_l * Kr_l * h_left 
 
     # Правая граничная ячейка с номером n-1
@@ -216,10 +216,10 @@ dx = length / n
 x = np.linspace(dx / 2, length - dx / 2, n - 1)
 #print(x)
 
-dt = 1e-9 # days
-T  = 1e-7
+dt = 1e-5 # days
+T  = 1e-1
 nt = int(T/dt)
-save_intensity = int(nt/10)
+save_intensity = 1000#int(nt/)
 
 frames_data = []
 errors_inv = []
@@ -291,7 +291,7 @@ for time_step in range(1, nt):
     for i in range(0,n-1):
         sat[i] = get_S(h[i])
     
-    if time_step % save_intensity == 1:
+    if time_step % save_intensity == 0:
         frames_data.append((x, h, h_init, x_exact, y_exact, n))
     #frames_data.append((x, h, n))
 
