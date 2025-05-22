@@ -74,7 +74,7 @@ def get_diagonal(n, dx, dt, h_init):
         Kr_l = get_Kr(max(h_init[i - 1], h_init[i]))
         #print(f"Kr: {Kr_l}, {Kr_r}")
         diagonal[i] = (k_l * Kr_l + k_r * Kr_r)
-        
+
     # Левая граничная ячейка с номером 0
     k_l = get_k(0.5 * dx) # Берем из ячейки
     k_r = get_k_node(1, dx, n)
@@ -93,7 +93,7 @@ def get_diagonal(n, dx, dt, h_init):
     for i in range(0,n-1):
         S            = get_S(h_init[i])
         sstor        = get_sstor((i + 0.5) * dx)
-        diagonal[i] += (dx ** 2) * sstor * S / dt;
+        diagonal[i] += (dx ** 2) * sstor * S / dt
     
     #print(diagonal)
     #exit(-1)
@@ -221,9 +221,14 @@ T  = 1e-7
 nt = int(T/dt)
 save_intensity = int(nt/10)
 
+frame_top = 1
+frame_bottom = 1.1*IC
+
 frames_data = []
 errors_inv = []
 errors_thomas = []
+flow_in_cells_t = []
+sum_flows = []
 
 # Начальные условия - напор в начальный момент
 h_init = get_h_initial(x)
@@ -290,23 +295,43 @@ for time_step in range(1, nt):
     sat = h.copy()
     for i in range(0,n-1):
         sat[i] = get_S(h[i])
-    
+
+
+    flow_in_cells = []
+    a = - get_k(dx * 0) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
+    for i in range(1, n):
+        b = - get_k(dx * i) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
+        flow_in_cells.append(a + b)
+        a = b
+    flow_in_cells = flow_in_cells - np.average(flow_in_cells)
+    flow_in_cells_t.append(flow_in_cells.copy())
+    # sum_flows.append[sum(flow_in_cells_t[-1])]
+
+
     if time_step % save_intensity == 1:
-        frames_data.append((x, h, h_init, x_exact, y_exact, n))
+        frames_data.append((x, h, h_init, x_exact, y_exact, flow_in_cells, n))
+        frame_bottom = min(np.min(h), frame_bottom)
+        frame_top = max(np.max(flow_in_cells + h), frame_top)
     #frames_data.append((x, h, n))
 
     # Вычисление ошибки в норме C
     # errors_inv.append(compute_error_c_norm(x, sol_inv))
     # errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, dt))
 
+
+
     h_init = h
 print(f"save_intensity = {save_intensity}")
 
+
+for i in frames_data:
+    print(f"flow difference on step i: {np.average(i[5])}")
 
 # Создание графика решений
 fig, ax = plt.subplots(figsize=(10, 6))
 line_inv, = ax.plot([], [], label="Previous step solution", color="blue", linestyle='--')
 line_thomas, = ax.plot([], [], label="Thomas Algorithm", color="green")
+line_flow, = ax.plot([], [], label="Flow difference in cells", color="red", linestyle="-")
 line_exact, = ax.plot([], [], label="Initial condition", color="black", linestyle='-.')
 
 ax.set_xlabel("x")
@@ -320,16 +345,17 @@ ax.grid(True)
 
 def init():
     ax.set_xlim(-0.1, 1.1)
-    ax.set_ylim(1.1*IC, 1)
+    ax.set_ylim(frame_bottom * 1.1, frame_top * 1.1)
     return line_inv, line_thomas, line_exact
 
 def update(frame):
     # x, sol_inv, sol_thomas, x_exact, y_exact, n_val = frames_data[frame]
-    x, sol_thomas, h_prev, x_exact, y_exact, n_val = frames_data[frame]
+    x, sol_thomas, h_prev, x_exact, y_exact, flow_in_cells, n_val = frames_data[frame]
     # line_inv.set_data(x, sol_inv)
     line_inv.set_data(x, h_prev)
     line_thomas.set_data(x, sol_thomas)
     line_exact.set_data(x_exact, y_exact)
+    line_flow.set_data(x, flow_in_cells)
     ax.set_title(f"Solution of the system (n = {n_val})")
     return line_inv, line_thomas, line_exact
 
