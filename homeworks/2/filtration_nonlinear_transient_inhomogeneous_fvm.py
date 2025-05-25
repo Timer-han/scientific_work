@@ -12,6 +12,17 @@ def get_h(x, t):
 def get_k(x):
     return 7.96 # m/day
 
+# Пока что зависимости от координаты нет,
+# то есть область однородная
+def get_VG_param(x):
+    th_s = get_phi()
+    th_r = 0.102
+    n = 2
+    m = 1 - 1 / n
+    a_vg = 3.35
+    return th_s, th_r, n, m, a_vg
+    
+
 # Определить аппроксимацию К в узле
 def get_k_node(i, dx, n):
     if i == 0:
@@ -35,25 +46,25 @@ def get_Kr(h):
     #val = (h/10)**2
     #print(val)
     #return get_S(h) ** 2
-    ө_s = get_phi()
-    ө_r = 0.102
-    n = 2
-    m = 1 - 1 / n
+    ө_s, ө_r, n, m, a = get_VG_param(0)
     ө = get_ө(h)
     S_l = (ө - ө_r) / (ө_s - ө_r)
     #print(S_l)
     return S_l ** 2# 0.5 * (1 - (1 - S_l ** (1 / m)) ** m) ** 2
 def get_ө(h):
-    ө_s = get_phi()
-    ө_r = 0.102
-    a_vg = 3.35
-    n = 2
-    m = 1 - 1 / n
-    #return ө_s
+    ө_s, ө_r, n, m, a_vg = get_VG_param(0)
     if h < 0:
         return ө_r + (ө_s - ө_r) / (1 + abs(a_vg * h) ** n) ** m
     else:
         return ө_s
+    
+def get_theta_der(h):
+    theta_s, theta_r, n, m, alpha = get_VG_param(0)
+    if h < 0.0:
+         return (theta_s - theta_r) * m*n * alpha * pow(-alpha*h, n-1.0) * pow(1.0 + pow(-alpha*h, n), -m - 1.0);
+    else:
+         return 0.0;
+    
 def get_phi():
     return 0.368
 
