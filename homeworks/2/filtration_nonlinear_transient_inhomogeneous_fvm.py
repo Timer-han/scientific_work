@@ -104,7 +104,9 @@ def get_diagonal(n, dx, dt, h_init):
     for i in range(0,n-1):
         S            = get_S(h_init[i])
         sstor        = get_sstor((i + 0.5) * dx)
-        diagonal[i] += (dx ** 2) * sstor * S / dt
+        coef         = S * sstor
+        coef        += get_theta_der(h_init[i])
+        diagonal[i] += coef * (dx ** 2) / dt
     
     #print(diagonal)
     #exit(-1)
@@ -114,6 +116,7 @@ def get_diagonal(n, dx, dt, h_init):
 def build_rhs_vector(n, dx, dt, time_step, h_prev, h_init):
     vector = np.zeros(n)
 
+    # Часть, связанная с производной по времени
     for i in range(0, n - 1):
         x = (i + 0.5) * dx
         t = time_step * dt
@@ -121,7 +124,12 @@ def build_rhs_vector(n, dx, dt, time_step, h_prev, h_init):
         k = get_k(x)
         S = get_S(h_init[i])
         vector[i] = sstor * S * (dx**2) / dt * h_prev[i]
-
+        theta_n = get_ө(h_prev[i])
+        theta_k = get_ө(h_init[i])
+        c_theta = get_theta_der(h_init[i])
+        vector[i] += c_theta * h_init[i] * (dx**2) / dt 
+        vector[i] -= (theta_k - theta_n) * (dx**2) / dt 
+        
     length = n * dx
     h_left, h_right = get_h_boundaries(time_step * dt, length)
     
@@ -227,8 +235,8 @@ dx = length / n
 x = np.linspace(dx / 2, length - dx / 2, n - 1)
 #print(x)
 
-dt = 1e-9 # days
-T  = 1e-7
+dt = 1e-4 # days
+T  = 1e-2
 nt = int(T/dt)
 save_intensity = int(nt/10)
 
