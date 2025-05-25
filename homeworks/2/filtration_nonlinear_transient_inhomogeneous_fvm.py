@@ -19,7 +19,7 @@ def get_VG_param(x):
     th_r = 0.102
     n = 2
     m = 1 - 1 / n
-    a_vg = 3.35
+    a_vg = 3.35*10
     return th_s, th_r, n, m, a_vg
     
 
@@ -230,7 +230,7 @@ def compute_residual_norm(n, diag_c, diag_u, diag_l, rhs, h, dt):
 eps_abs = 1e-5
 eps_rel = 1e-5
 length = 1 # m
-n = 32
+n = 128
 dx = length / n
 x = np.linspace(dx / 2, length - dx / 2, n - 1)
 #print(x)
