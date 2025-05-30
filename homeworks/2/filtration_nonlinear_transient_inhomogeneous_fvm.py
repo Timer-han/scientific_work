@@ -227,18 +227,28 @@ def compute_residual_norm(n, diag_c, diag_u, diag_l, rhs, h, dt):
     
 
 # Параметры задачи
-eps_abs = 1e-5
-eps_rel = 1e-5
+eps_abs = 1e-7
+eps_rel = 1e-7
 length = 1 # m
-n = 128
+n = 16
 dx = length / n
 x = np.linspace(dx / 2, length - dx / 2, n - 1)
 #print(x)
 
-dt = 1e-4 # days
 T  = 1e-2
+# dt = 1e-4 # days
+dt = T / 20
 nt = int(T/dt)
 save_intensity = int(nt/10)
+
+n_array = [2**i for i in range(4, 13)] # Количество ячеек
+t_array = [1e-2 / 10 / 2**i for i in range(1, 7)] # Временные шаги
+t_array.extend([t_array[-1], t_array[-1], t_array[-1]])
+
+if len(n_array) != len(t_array):
+    print("Количество ячеек и временных шагов не совпадает!")
+    print(f"n_array: {len(n_array)}, t_array: {len(t_array)}")
+    sys.exit(1)
 
 frame_top = 1
 frame_bottom = 1.1*IC
@@ -249,97 +259,112 @@ errors_thomas = []
 flow_in_cells_t = []
 sum_flows = []
 
-# Начальные условия - напор в начальный момент
-h_init = get_h_initial(x)
+solution_compare = []
 
-# Решение на предыдущем шаге по времени - h^n
-# Для понятности переименовал его из h_prev в h_n
-h_n = h_init.copy()
+for i in range(len(n_array)):
+    # dt /= 2
+    # dx /= 2
+    # n *= 2
 
-# Решение на новом шаге по времени - h^{n+1}
-# Для понятности назвал его просто h
-h = h_n.copy()
+    n = n_array[i]
+    dx = length / n
+    dt = t_array[i]
+    nt = int(T/dt)
+    save_intensity = int(nt/20)
+    x = np.linspace(dx / 2, length - dx / 2, n - 1)
+    # Начальные условия - напор в начальный момент
+    h_init = get_h_initial(x)
 
-for time_step in range(1, nt):
-    # решение задачи
-    print(f"-- Time step {time_step}, t_beg = {(time_step-1) * dt}")
+    # Решение на предыдущем шаге по времени - h^n
+    # Для понятности переименовал его из h_prev в h_n
+    h_n = h_init.copy()
 
-    converged = False
-    r_0 = 0
-    # Цикл метода простой итерации (Picard method)
-    for k in range(100):
-        # Формируем матрицу, записывая диагонали
-        diagonal = get_diagonal(n, dx, dt, h)
-        upper_diagonal = get_upper_diagonal(n, h)
-        lower_diagonal = get_lower_diagonal(n, h)
-        #print(diagonal)
-        #print(lower_diagonal)
-        #print(upper_diagonal)
+    # Решение на новом шаге по времени - h^{n+1}
+    # Для понятности назвал его просто h
+    h = h_n.copy()
 
-        # Составляем вектор правой части
-        vector = build_rhs_vector(n, dx, dt, time_step, h_n, h)
+    for time_step in range(1, nt):
+        # решение задачи
+        print(f"-- Time step {time_step}, t_beg = {(time_step-1) * dt}")
         
-        # Считаем невязку
-        # В данном случае h выступает как h^{n+1,k}
-        # Переход к h^{n+1,k+1} случится после вызова прогонки
-        r_k = compute_residual_norm(n, diagonal, upper_diagonal, lower_diagonal, vector, h, dt)
-        if k == 0:
-            r_0 = r_k
-        print(f"  iter {k}, r = {r_k}")
-        
-        # Смотрим на сходимость 
-        if (r_k < eps_abs or r_k < eps_rel * r_0) and k > 0:
-            print("  Converged")
-            converged = True
+        x_exact = np.linspace(dx / 2, length - dx / 2, 1000)
+        y_exact = get_h(x_exact, time_step * dt)
+
+        converged = False
+        r_0 = 0
+        # Цикл метода простой итерации (Picard method)
+        for k in range(100):
+            # Формируем матрицу, записывая диагонали
+            diagonal = get_diagonal(n, dx, dt, h)
+            upper_diagonal = get_upper_diagonal(n, h)
+            lower_diagonal = get_lower_diagonal(n, h)
+            #print(diagonal)
+            #print(lower_diagonal)
+            #print(upper_diagonal)
+
+            # Составляем вектор правой части
+            vector = build_rhs_vector(n, dx, dt, time_step, h_n, h)
+            
+            # Считаем невязку
+            # В данном случае h выступает как h^{n+1,k}
+            # Переход к h^{n+1,k+1} случится после вызова прогонки
+            r_k = compute_residual_norm(n, diagonal, upper_diagonal, lower_diagonal, vector, h, dt)
+            if k == 0:
+                r_0 = r_k
+            print(f"  iter {k}, r = {r_k}")
+            
+            # Смотрим на сходимость 
+            if (r_k < eps_abs or r_k < eps_rel * r_0) and k > 0:
+                print("  Converged")
+                converged = True
+                break
+            
+            # Решение системы прогонкой
+            # h становится h^{n+1,k+1}
+            h = thomas(diagonal, upper_diagonal, lower_diagonal, vector)
+            #print(h)
+            #exit(1)
+
+        if not converged:
+            print(f"Не сошлось на шаге {time_step}!")
             break
         
-        # Решение системы прогонкой
-        # h становится h^{n+1,k+1}
-        h = thomas(diagonal, upper_diagonal, lower_diagonal, vector)
+        # Сошлись, обновляем решение на предыдущем шаге
+        h_n = h
         #print(h)
-        #exit(1)
 
-    if not converged:
-        print(f"Не сошлось на шаге {time_step}!")
-        break
-    
-    # Сошлись, обновляем решение на предыдущем шаге
-    h_n = h
-    #print(h)
-
-    x_exact = np.linspace(dx / 2, length - dx / 2, 1000)
-    y_exact = get_h(x_exact, time_step * dt)
-
-    # frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
-    sat = h.copy()
-    for i in range(0,n-1):
-        sat[i] = get_S(h[i])
+        # frames_data.append((x, sol_inv, sol_thomas, x_exact, y_exact, n))
+        sat = h.copy()
+        for i in range(0,n-1):
+            sat[i] = get_S(h[i])
 
 
-    flow_in_cells = []
-    a = - get_k(dx * 0) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
-    for i in range(1, n):
-        b = - get_k(dx * i) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
-        flow_in_cells.append(a + b)
-        a = b
-    flow_in_cells = flow_in_cells - np.average(flow_in_cells)
-    flow_in_cells_t.append(flow_in_cells.copy())
-    # sum_flows.append[sum(flow_in_cells_t[-1])]
+        flow_in_cells = []
+        a = - get_k(dx * 0) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
+        for i in range(1, n):
+            b = - get_k(dx * i) * get_k_node (0, dx, n) * (h[1] - h[0]) / dx
+            flow_in_cells.append(a + b)
+            a = b
+        flow_in_cells = flow_in_cells - np.average(flow_in_cells)
+        flow_in_cells_t.append(flow_in_cells.copy())
+        # sum_flows.append[sum(flow_in_cells_t[-1])]
 
 
-    if time_step % save_intensity == 1:
-        frames_data.append((x, h, h_init, x_exact, y_exact, flow_in_cells, n))
-        frame_bottom = min(np.min(h), frame_bottom)
-        frame_top = max(np.max(flow_in_cells + h), frame_top)
-    #frames_data.append((x, h, n))
+        if time_step % save_intensity == 1:
+            frames_data.append((x, h, h_init, x_exact, y_exact, flow_in_cells, n))
+            frame_bottom = min(np.min(h), frame_bottom)
+            frame_top = max(np.max(flow_in_cells + h), frame_top)
+        #frames_data.append((x, h, n))
 
-    # Вычисление ошибки в норме C
-    # errors_inv.append(compute_error_c_norm(x, sol_inv))
-    # errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, dt))
+        # Вычисление ошибки в норме C
+        # errors_inv.append(compute_error_c_norm(x, sol_inv))
+        # errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, dt))
 
 
 
-    h_init = h
+        h_init = h
+
+    solution_compare.append((x, h, x_exact, y_exact, n))
 print(f"save_intensity = {save_intensity}")
 
 
@@ -386,4 +411,17 @@ ani = FuncAnimation(fig, update, frames=len(frames_data),
 
 # pillow_writer = PillowWriter(fps=10)
 # ani.save('animation.gif', writer=pillow_writer)
+plt.show()
+
+
+# Plot all solutions from solution_compare as static lines
+plt.figure(figsize=(10, 6))
+for i, (x, h, x_exact, y_exact, n_val) in enumerate(solution_compare):
+    plt.plot(x, h, label=f'n={n_val}', color=plt.cm.plasma(i / len(solution_compare)))
+plt.plot(x_exact, y_exact, 'k--', label='Initial condition')
+plt.xlabel("x")
+plt.ylabel("Solution")
+plt.title("Comparison of solutions for different grid resolutions")
+plt.legend()
+plt.grid(True)
 plt.show()
