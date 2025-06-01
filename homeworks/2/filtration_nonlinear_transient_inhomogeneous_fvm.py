@@ -5,6 +5,8 @@ from matplotlib.animation import PillowWriter
 import sys
 import os
 
+PATH_FOR_DATA = "data/"
+PATH_FOR_GRAPHICS = "graphics/"
 IC = -8
 
 # Пример 2. Celia
@@ -64,7 +66,7 @@ def get_theta_der(h):
     if h < 0.0:
          return (theta_s - theta_r) * m*n * alpha * pow(-alpha*h, n-1.0) * pow(1.0 + pow(-alpha*h, n), -m - 1.0);
     else:
-         return 0.0;
+         return 0.0
     
 def get_phi():
     return 0.368
@@ -255,9 +257,9 @@ def read_data(filename):
     return result
 
 answer = False
-if (os.path.exists("frames_data.npz")
-    and os.path.exists("low_eps_solution_compare.npz")
-    and os.path.exists("high_eps_solution_compare.npz")):
+if (os.path.exists(PATH_FOR_DATA + "frames_data.npz")
+    and os.path.exists(PATH_FOR_DATA + "low_eps_solution_compare.npz")
+    and os.path.exists(PATH_FOR_DATA + "high_eps_solution_compare.npz")):
     print("Found existing data files, load them?")
     while True:
         answer = input("Type 'yes' to load or 'no' to compute new data: ").strip().lower()
@@ -274,9 +276,9 @@ if (os.path.exists("frames_data.npz")
     
 
 if answer:
-    frames_data = read_data("frames_data.npz")
-    low_eps_solution_compare = read_data("low_eps_solution_compare.npz")
-    high_eps_solution_compare = read_data("high_eps_solution_compare.npz")
+    frames_data = read_data(PATH_FOR_DATA + "frames_data.npz")
+    low_eps_solution_compare = read_data(PATH_FOR_DATA + "low_eps_solution_compare.npz")
+    high_eps_solution_compare = read_data(PATH_FOR_DATA + "high_eps_solution_compare.npz")
     
 else:
 
@@ -458,7 +460,7 @@ ani = FuncAnimation(fig, update, frames=len(frames_data),
 pillow_writer = PillowWriter(fps=10)
 
 print("Saving animation.gif...")
-ani.save('animation.gif', writer=pillow_writer)
+ani.save(PATH_FOR_GRAPHICS + 'animation.gif', writer=pillow_writer)
 plt.show()
 
 
@@ -501,7 +503,7 @@ different_eps_compare_ani = FuncAnimation(fig, update_sol_comp, frames=len(high_
 
 pillow_writer = PillowWriter(fps=2)
 print("Saving different_eps_compare.gif...")
-different_eps_compare_ani.save('different_eps_compare.gif', writer=pillow_writer)
+different_eps_compare_ani.save(PATH_FOR_GRAPHICS + 'different_eps_compare.gif', writer=pillow_writer)
 
 plt.show()
 
@@ -522,7 +524,7 @@ plt.ylabel("Max difference between solutions")
 plt.title("Max difference between high and low eps solutions")
 plt.grid(True)
 print("Saving solution_difference_loglog.png...")
-plt.savefig("solution_difference_loglog.png")
+plt.savefig(PATH_FOR_GRAPHICS + "solution_difference_loglog.png")
 plt.show()
 
 
@@ -544,7 +546,7 @@ plt.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
 plt.grid(True)
 plt.tight_layout()
 print("Saving comparison_n_eps_solutions.png...")
-plt.savefig("comparison_n_eps_solutions.png", bbox_inches='tight')
+plt.savefig(PATH_FOR_GRAPHICS + "comparison_n_eps_solutions.png", bbox_inches='tight')
 plt.show()
 
 # --------------------------------------------------------------------
@@ -560,9 +562,9 @@ def save_data(filename, data_list):
 # Save all data
 if not answer:
     print("Saving data to files...")
-    save_data("frames_data.npz", frames_data)
-    save_data("low_eps_solution_compare.npz", low_eps_solution_compare)
-    save_data("high_eps_solution_compare.npz", high_eps_solution_compare)
+    save_data(PATH_FOR_DATA + "frames_data.npz", frames_data)
+    save_data(PATH_FOR_DATA + "low_eps_solution_compare.npz", low_eps_solution_compare)
+    save_data(PATH_FOR_DATA + "high_eps_solution_compare.npz", high_eps_solution_compare)
 
 print("All data saved successfully.")
 print("Done!")
