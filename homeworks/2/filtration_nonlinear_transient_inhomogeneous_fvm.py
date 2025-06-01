@@ -406,8 +406,6 @@ else:
                 # errors_inv.append(compute_error_c_norm(x, sol_inv))
                 # errors_thomas.append(compute_error_c_norm(x, sol_thomas, time_step, dt))
 
-
-
                 h_init = h
 
             if eps == 1e-1:
