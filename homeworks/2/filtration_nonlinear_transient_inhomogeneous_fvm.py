@@ -231,6 +231,7 @@ def compute_residual_norm(n, diag_c, diag_u, diag_l, rhs, h, dt):
 # Инициализация некоторых переменных
 frame_top = 1
 frame_bottom = 1.1*IC
+eps_array = [1e-1, 1e-7]
 
 # --------------------------------------------------------------------
 # Чтение данных из файлов или их вычисление
@@ -259,7 +260,8 @@ def read_data(filename):
 answer = False
 if (os.path.exists(PATH_FOR_DATA + "frames_data.npz")
     and os.path.exists(PATH_FOR_DATA + "low_eps_solution_compare.npz")
-    and os.path.exists(PATH_FOR_DATA + "high_eps_solution_compare.npz")):
+    and os.path.exists(PATH_FOR_DATA + "high_eps_solution_compare.npz")
+    and os.path.exists(PATH_FOR_DATA + "eps_solutions_compare_1.000000e+00.npz")):
     print("Found existing data files, load them?")
     while True:
         answer = input("Type 'yes' to load or 'no' to compute new data: ").strip().lower()
@@ -279,17 +281,21 @@ if answer:
     frames_data = read_data(PATH_FOR_DATA + "frames_data.npz")
     low_eps_solution_compare = read_data(PATH_FOR_DATA + "low_eps_solution_compare.npz")
     high_eps_solution_compare = read_data(PATH_FOR_DATA + "high_eps_solution_compare.npz")
+    eps_solutions_compare = []
+    for eps in [1, 1e-1, 5e-2, 1e-3, 1e-5, 1e-7]:
+        eps_solutions_compare.append(read_data(PATH_FOR_DATA + f"eps_solutions_compare_{eps:e}.npz"))
     
 else:
 
     # Параметры задачи
 
     length = 1 # m
-    T  = 1e-2
+    T  = 3e-3
+    eps_rel = 1e-20
 
-    n_array = [2**i for i in range(4, 13)] # Количество ячеек
-    t_array = [1e-2 / 10 / 2**i for i in range(1, 7)] # Временные шаги
-    t_array.extend([t_array[-1], t_array[-1], t_array[-1]])
+    n_array = [100, 200, 400, 800] # Количество ячеек
+    t_array = [T / 30 for _ in range(4)] # Временные шаги
+    # t_array.extend([t_array[-1], t_array[-1], t_array[-1]])
 
     if len(n_array) != len(t_array):
         print("Количество ячеек и временных шагов не совпадает!")
@@ -305,18 +311,19 @@ else:
 
     low_eps_solution_compare = []
     high_eps_solution_compare = []
+    eps_solutions_compare = [[] for _ in range(len(eps_array))]
 
     for i in range(len(n_array)):
         n = n_array[i]
         dx = length / n
         dt = t_array[i]
         nt = int(T/dt)
-        save_intensity = int(nt/20)
+        save_intensity = 3
         x = np.linspace(dx / 2, length - dx / 2, n - 1)
 
-        for eps in [1e-1, 1e-7]:
+        for eps_i, eps in enumerate(eps_array):
             eps_abs = eps
-            eps_rel = eps
+            # eps_rel = eps
 
             # Начальные условия - напор в начальный момент
             h_init = get_h_initial(x)
@@ -397,7 +404,7 @@ else:
 
 
                 if time_step % save_intensity == 1:
-                    frames_data.append((x, h, h_init, x_exact, y_exact, flow_in_cells, n))
+                    frames_data.append((x, h, h_init, x_exact, y_exact, flow_in_cells, n, eps))
                     frame_bottom = min(np.min(h), frame_bottom)
                     frame_top = max(np.max(flow_in_cells + h), frame_top)
                 #frames_data.append((x, h, n))
@@ -410,8 +417,9 @@ else:
 
             if eps == 1e-1:
                 high_eps_solution_compare.append((x, h, x_exact, y_exact, n))
-            else:
+            elif eps == 1e-7:
                 low_eps_solution_compare.append((x, h, x_exact, y_exact, n))
+            eps_solutions_compare[eps_i].append((x, h, x_exact, y_exact, n))
 # print(f"save_intensity = {save_intensity}")
 
 
@@ -443,13 +451,13 @@ def init():
 
 def update(frame):
     # x, sol_inv, sol_thomas, x_exact, y_exact, n_val = frames_data[frame]
-    x, sol_thomas, h_prev, x_exact, y_exact, flow_in_cells, n_val = frames_data[frame]
+    x, sol_thomas, h_prev, x_exact, y_exact, flow_in_cells, n_val, eps = frames_data[frame]
     # line_prev.set_data(x, sol_inv)
     line_prev.set_data(x, h_prev)
     line_thomas.set_data(x, sol_thomas)
     line_exact.set_data(x_exact, y_exact)
     line_flow.set_data(x, flow_in_cells)
-    ax.set_title(f"Solution of the system (n = {n_val})")
+    ax.set_title(f"Solution of the system (n = {n_val}, eps = {eps})")
     return line_prev, line_thomas, line_exact
 
 ani = FuncAnimation(fig, update, frames=len(frames_data),
@@ -464,10 +472,16 @@ plt.show()
 
 # --------------------------------------------------------------------
 # Сравнение решений с разными eps
+linestyles = ['-', '--', '-.', ':']
+
 fig, ax = plt.subplots(figsize=(10, 6))
 line_exact, = ax.plot([], [], label="Initial condition", color="black", linestyle='-.')
-line_low_eps_solution, = ax.plot([], [], label="Low eps solution", color="orange", linestyle=':')
-line_high_eps_solution, = ax.plot([], [], label="High eps solution", color="purple", linestyle=':')
+# line_low_eps_solution, = ax.plot([], [], label="Low eps solution", color="orange", linestyle=':')
+# line_high_eps_solution, = ax.plot([], [], label="High eps solution", color="purple", linestyle=':')
+line_eps_solutions = []
+for i, eps_solutions in enumerate(eps_solutions_compare):
+    line_eps_solution, = ax.plot([], [], label=f"eps={eps_array[i]}", color=plt.cm.hsv(i / len(eps_solutions_compare)), linestyle=linestyles[i % len(linestyles)])
+    line_eps_solutions.append(line_eps_solution)
 
 ax.set_xlabel("x")
 ax.set_ylabel("Solution")
@@ -480,20 +494,26 @@ def init_sol_comp():
     ax.set_xlim(-0.1, 1.1)
     ax.set_ylim(frame_bottom * 1.1, frame_top * 1.1)
 
-    return line_high_eps_solution, line_low_eps_solution, line_exact, ax.title
+    # return line_high_eps_solution, line_low_eps_solution, line_exact, ax.title
+    return line_exact, ax.title, *line_eps_solutions
 
 def update_sol_comp(frame):
-    x, h, x_exact, y_exact, n_val = high_eps_solution_compare[frame]
-    line_high_eps_solution.set_data(x, h)
+    # x, h, x_exact, y_exact, n_val = high_eps_solution_compare[frame]
+    # line_high_eps_solution.set_data(x, h)
 
-    x, h, x_exact, y_exact, n_val = low_eps_solution_compare[frame]
-    line_low_eps_solution.set_data(x, h)
+    # x, h, x_exact, y_exact, n_val = low_eps_solution_compare[frame]
+    # line_low_eps_solution.set_data(x, h)
+    for i, eps_solutions in enumerate(eps_solutions_compare):
+        x, h, x_exact, y_exact, n_val = eps_solutions[frame]
+        line_eps_solutions[i].set_data(x, h)
+
 
     line_exact.set_data(x_exact, y_exact)
 
     ax.set_title(f"Solution of the system (n = {n_val})")
     
-    return line_high_eps_solution, line_low_eps_solution, line_exact, ax.title
+    # return line_high_eps_solution, line_low_eps_solution, line_exact, ax.title
+    return line_exact, ax.title, *line_eps_solutions
 
 
 different_eps_compare_ani = FuncAnimation(fig, update_sol_comp, frames=len(high_eps_solution_compare),
@@ -531,11 +551,23 @@ plt.show()
 plt.figure(figsize=(10, 6))
 
 for i in range(len(high_eps_solution_compare)):
-    x, h_low, _, _, _ = low_eps_solution_compare[i]
-    plt.plot(x, h_low, label=f"Low eps solution (n={n_val})", linestyle='-', color=plt.cm.hsv(i / len(low_eps_solution_compare)))
+    for j, eps in enumerate(eps_array):
+        x, h, x_exact, y_exact, n_val = eps_solutions_compare[j][i]
+        if i == 0:
+            color = ((j + 1) / len(eps_array), 0, 0)
+        elif i == 1:
+            color = (0, (j + 1) / len(eps_array), 0)
+        elif i == 2:
+            color = (0, 0, (j + 1) / len(eps_array))
+        else:
+            color = (0.9 * (j + 1) / len(eps_array), 0.9 * (j + 1) / len(eps_array), 0)
+        linestyles = ['-', '--', '-.', ':']
+        plt.plot(x, h, label=f"n={n_val}, eps={eps}", linestyle=linestyles[j % 4], color=color)
+    # x, h_low, _, _, _ = low_eps_solution_compare[i]
+    # plt.plot(x, h_low, label=f"Low eps solution (n={n_val})", linestyle='-', color=plt.cm.hsv(i / len(low_eps_solution_compare)))
 
-    x, h_high, x_exact, y_exact, n_val = high_eps_solution_compare[i]
-    plt.plot(x, h_high, label=f"High eps solution (n={n_val})", linestyle=':', color=plt.cm.hsv(i / len(low_eps_solution_compare) + 0.03))
+    # x, h_high, x_exact, y_exact, n_val = high_eps_solution_compare[i]
+    # plt.plot(x, h_high, label=f"High eps solution (n={n_val})", linestyle=':', color=plt.cm.hsv(i / len(low_eps_solution_compare) + 0.03))
 
 plt.xlabel("x")
 plt.ylabel("Solution")
@@ -563,6 +595,8 @@ if not answer:
     save_data(PATH_FOR_DATA + "frames_data.npz", frames_data)
     save_data(PATH_FOR_DATA + "low_eps_solution_compare.npz", low_eps_solution_compare)
     save_data(PATH_FOR_DATA + "high_eps_solution_compare.npz", high_eps_solution_compare)
+    for i, eps_solutions in enumerate(eps_solutions_compare):
+        save_data(PATH_FOR_DATA + f"eps_solutions_compare_{eps_array[i]:e}.npz", eps_solutions)
 
 print("All data saved successfully.")
 print("Done!")
